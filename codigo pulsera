@@ -1,0 +1,89 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <WiFi.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
+
+// Configuración de WiFi
+const char* ssid = "IoTB";
+const char* password = "inventaronelVAR";
+
+// Configuración del cliente NTP
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "pool.ntp.org", -3 * 3600, 60000); // Zona horaria UTC, actualizar cada 60 segundos
+
+// Configuración de la pantalla LCD
+LiquidCrystal_I2C lcd(0x27, 16, 2); // Verifica que la dirección sea 0x27 después de correr el escáner
+
+#define scl 22
+#define sda 21
+
+#define waaaa 13
+
+String alarmTime = "08:36:00"; // Define la hora de la alarma en formato HH:MM:SS
+
+void setup() {
+  // Iniciar comunicación serial para debug
+  Serial.begin(115200);
+  
+  // Configuración de los pines I2C
+  Wire.begin(sda, scl);
+  
+  // Inicializar pantalla LCD con un pequeño retraso
+  lcd.init();  // Iniciar el LCD
+  delay(200);  // Pequeño retraso
+  lcd.backlight();  // Encender retroiluminación
+  
+  // Mostrar mensaje inicial en LCD
+  lcd.clear();
+  lcd.print("Conectando...");
+  
+  // Conexión a la red WiFi
+  Serial.print("Conectando a ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.println("Conectado a la red WiFi");
+  
+  // Re-iniciar la pantalla LCD después de la conexión a WiFi
+  lcd.clear();
+  lcd.print("Conectado!");
+
+  // Iniciar cliente NTP
+  timeClient.begin();
+  delay(2000);  // Retraso para estabilizar todo
+
+  pinMode(waaaa, OUTPUT);
+}
+
+void loop() {
+  // Actualizar el tiempo NTP
+  timeClient.update();
+  
+  // Obtener la hora actual
+  String formattedTime = timeClient.getFormattedTime();
+  Serial.println(formattedTime); // Imprimir la hora por serial
+  
+  // Mostrar la hora en la pantalla LCD
+  lcd.clear(); // Limpiar el LCD
+  lcd.setCursor(0, 0); // Coloca el cursor en la primera línea
+  lcd.print(formattedTime);
+  
+  // Mostrar la hora de la alarma en la esquina inferior derecha
+  lcd.setCursor(11, 1); // Coloca el cursor en la esquina inferior derecha
+  lcd.print(alarmTime);
+  
+  // Verificar si la hora actual coincide con la hora de la alarma
+  if (formattedTime == alarmTime) {
+    Serial.println("ALARM! Time to wake up!");
+    digitalWrite(waaaa, HIGH);
+    // Aquí puedes agregar acciones para la alarma, como encender un LED o activar un buzzer.
+  }
+  
+  delay(1000); // Actualizar cada segundo
+}
